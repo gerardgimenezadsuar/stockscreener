@@ -116,7 +116,7 @@ analysis_page <- makePage(
     Stack(
       tokens = list(childrenGap = 10),
       span(Text(variant = "xLarge", "Easily monitor more than >6,000 companies listed in the NASDAQ and NYSE")),
-      span(Text(variant = "small", "Updated daily to never miss any new piece of business intelligence")),
+      span(Text(variant = "small", "Updated daily to never miss any new piece of business intelligence.", textOutput("update_time_ui"))),
       span(Text(variant = "xLarge", ""))
       ),
     Stack(
@@ -167,6 +167,12 @@ server <- function(input, output, session) {
   router_server()
   
   table_df <- readRDS(paste0("summary_latest_", format(Sys.time(), tz = "UTC", "%Y-%m-%d"),".rds"))
+  message(head(table_df))
+  
+  output$update_time_ui <- renderText({
+    update_time <- file.info(paste0("summary_latest_", format(Sys.time(), tz = "UTC", "%Y-%m-%d"),".rds"))$mtime
+    return(paste0("Last update: ",format(update_time, "%m/%d/%Y %H:%M:%S"), " CET"))
+  })
   
   
   filtered_table <- reactive({
