@@ -55,7 +55,7 @@ saveRDS(dflatest, paste0("../../summary_latest_", format(Sys.time(), tz = "UTC",
 file_name_today <- paste0("../../", "summary_latest_", format(Sys.time(), tz = "UTC", "%Y-%m-%d"), ".rds")
 
 # List all files in the directory that match your pattern
-existing_files <- list.files(path = dir_path, pattern = paste0("^", file_prefix, ".*\\.rds$"), full.names = TRUE)
+existing_files <- list.files(path = "../..", pattern = paste0("^", file_prefix, ".*\\.rds$"), full.names = TRUE)
 
 # Ensure there are more than 2 files (this will run right after assessing and before saving)
 if (length(existing_files) > 1) {
