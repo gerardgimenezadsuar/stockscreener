@@ -115,33 +115,35 @@ analysis_page <- makePage(
   div(
     Stack(
       tokens = list(childrenGap = 10),
-      span(Text(variant = "xLarge", "Easily monitor more than >9,000 companies listed in the NASDAQ and NYSE")),
-      span(Text(variant = "xSmall", "Updated daily to never miss any new piece of business intelligence")),
+      span(Text(variant = "xLarge", "Easily monitor more than >6,000 companies listed in the NASDAQ and NYSE")),
+      span(Text(variant = "small", "Updated daily to never miss any new piece of business intelligence")),
       span(Text(variant = "xLarge", ""))
       ),
     Stack(
       horizontal = T,
       tokens = list(childrenGap = 10),
-      makeCard("Filters", filters, size = 4, style = "max-height: 400px"),
-      makeCard("Greatest Momentum", reactableOutput("table2"), size = 9)),
+      makeCard(Text(variant = "xLarge","Filters"), filters, size = 3, style = "max-height: 400px"),
+      makeCard(Text(variant = "xLarge","Greatest Momentum"), reactableOutput("table2"), size = 9)
+      ),
     Stack(
-      makeCard("Latest data", reactableOutput("table"), size = 12)
+      makeCard(Text(variant = "xLarge", "Latest data"), reactableOutput("table"), size = 12)
       )
     )
   )
 
 card1 <- makeCard(
   "About me",
-  div(
-    Text("I developed 'tidyedgar', an R package (found in CRAN), to retrieve financial data from the US SEC's EDGAR. This shiny app showcases its potential."),
+ Stack(
+    Text("I developed ",Link(href="https://cran.r-project.org/web/packages/tidyedgar/index.html", "'tidyedgar', an R package (found in CRAN)"),
+         ", to retrieve financial data from the US SEC's EDGAR. This shiny app showcases its potential."),
     Text("I began my professional career as a private equity analyst, so for me, this represents coming full circle. I hope you find it useful.")
   )
 )
 
 
 home_page <- makePage(
-  "Welcome to a fundamental financial analysis app in R!",
-  "Built with shiny.fluent and shiny.react",
+  "A U.S. stock screener built using R!",
+  "Leveraging shiny.fluent and shiny.react",
   div(card1)
 )
 
@@ -164,83 +166,62 @@ ui <- fluentPage(
 server <- function(input, output, session) {
   router_server()
   
-  table_df <- readRDS("summary_latest_20240213.rds") %>% ungroup()
+  table_df <- readRDS(paste0("summary_latest_", format(Sys.time(), tz = "UTC", "%Y-%m-%d"),".rds"))
   
   
   filtered_table <- reactive({
     
-    
-    message(input$slider_increaseNI != "")
-    
     df <- table_df %>%
       dplyr::select(-data.cik, -uom) %>%
-    mutate(revenue = revenue/1e6,
-           OperatingIncomeLoss = OperatingIncomeLoss/1e6,
-           net_income = net_income/1e6,
-           OperatingMargin = round(OperatingIncomeLoss/revenue,4)) %>%
-    mutate(change_R = ifelse(change_R > 99.99, 99.99, change_R),
-           change_NI = ifelse(change_NI > 99.99, 99.99, change_NI)) %>%
-    mutate(change_R = ifelse(change_R < -99.99, -99.99, change_R),
-           change_NI = ifelse(change_NI < -99.99, -99.99, change_NI)) %>%
+      dplyr::mutate(
+        revenue = revenue / 1e6,
+        OperatingIncomeLoss = OperatingIncomeLoss / 1e6,
+        net_income = net_income / 1e6,
+        OperatingMargin = round(OperatingIncomeLoss / revenue, 4),
+        change_R = pmin(pmax(change_R, -99.99), 99.99),
+        change_NI = pmin(pmax(change_NI, -99.99), 99.99)
+            ) %>%
       dplyr::filter(if(input$slider_increaseNI != "") (change_NI >= as.numeric(input$slider_increaseNI)) else TRUE) %>%
       dplyr::filter(if(input$slider_increaseR != "" ) (change_R >= as.numeric(input$slider_increaseR)) else TRUE) %>%
       dplyr::filter(if(input$slider != "" ) (revenue >= as.numeric(input$slider)) else TRUE) %>%
       dplyr::filter(if(input$sliderNI != "" ) (net_income >= as.numeric(input$sliderNI)) else TRUE)
     
-    message(nrow(df))
     df
-    
-  
   })
   
   filtered_table_top <- reactive({
-    
-    
     dfa <- table_df %>%
       dplyr::select(-data.cik, -uom, -OperatingIncomeLoss, -change_OI, -av_oi) %>%
-      mutate(revenue = revenue/1e6,
-             net_income = net_income/1e6) %>%
-      mutate(change_R = ifelse(change_R > 99.99, 99.99, change_R),
-             change_NI = ifelse(change_NI > 99.99, 99.99, change_NI)) %>%
-      mutate(change_R = ifelse(change_R < -99.99, -99.99, change_R),
-             change_NI = ifelse(change_NI < -99.99, -99.99, change_NI)) %>%
-      filter(net_income > 1e2,
-             change_R > 0.6) %>%
-      arrange(desc(revenue)) %>%
-      ungroup() %>%
-      slice_head(n = 20)
-
-    #message(nrow(dfa))
+      dplyr::filter(net_income > 1e6,
+                    change_R > 0.6,
+                    year == 2023) %>%
+      dplyr::mutate(revenue = revenue / 1e6,
+                    net_income = net_income / 1e6,
+                    change_R = pmin(pmax(change_R, -99.99), 99.99),
+                    change_NI = pmin(pmax(change_NI, -99.99), 99.99)) %>%
+      dplyr::arrange(desc(revenue)) %>%
+      dplyr::slice_head(n = 20)
+    
     dfa
-    
-    
   })
   
   
   
   
   output$table <- renderReactable({
-    av_rev <-  filtered_table() %>%
-      mutate(change_R = ifelse(change_R > 30, 30, change_R),
-             change_NI = ifelse(change_NI > 30, 30, change_NI)) %>%
-      mutate(change_R = ifelse(change_R < -30, -30, change_R),
-             change_NI = ifelse(change_NI < -30, -30, change_NI)) %>%
-      summarise(means = mean(change_R, na.rm=T))
-    #message(print(av_rev))
-    
+    av_rev <- filtered_table() %>%
+      dplyr::filter(!is.nan(change_R) & !is.infinite(change_R)) %>%
+      dplyr::mutate(
+        change_R = pmin(pmax(change_R, -30), 30),
+      ) %>%
+      dplyr::summarise(means = mean(change_R, na.rm = TRUE))
     
     av_ni <- filtered_table() %>%
-      filter(!is.nan(change_NI) & !is.infinite(change_NI)) %>%
-      mutate(change_R = ifelse(change_R > 6, 6, change_R),
-             change_NI = ifelse(change_NI > 6, 6, change_NI)) %>%
-      mutate(change_R = ifelse(change_R < -6, -6, change_R),
-             change_NI = ifelse(change_NI < -1, -1, change_NI)) %>%
-      summarise(means = mean(change_NI, na.rm=T))
-    # message(colnames(filtered_table()))
-    # message(head(filtered_table()))
-      
-    
-    
+      dplyr::filter(!is.nan(change_NI) & !is.infinite(change_NI)) %>%
+      dplyr::mutate(
+        change_NI = pmin(pmax(change_NI, -3), 6)
+      ) %>%
+      dplyr::summarise(means = mean(change_NI, na.rm = TRUE))
     
       reactable(filtered_table() %>% select(-weights),
               theme = nytimes(),
@@ -403,7 +384,6 @@ server <- function(input, output, session) {
       }
       return { color: color, fontWeight: 'bold' }
     }")),
-                                  #footer = function(values) paste0(scales::percent(mean(values, na.rm=T), accuracy = 0.1))),
                 change_NI = colDef(name = "Last year",
                                    maxWidth = 75,
                                    format = colFormat(percent = TRUE, digits = 1),
@@ -419,46 +399,11 @@ server <- function(input, output, session) {
       }
       return { color: color, fontWeight: 'bold' }
     }")),
-    #             av_rev4 = colDef(name = "Last 4 years",
-    #                              format = colFormat(percent = TRUE, digits = 1),
-    #                              maxWidth = 75,
-    #                              style = JS("function(rowInfo) {
-    #   const value = rowInfo.values['av_rev4']
-    #   let color
-    #   if (value > 0) {
-    #     color = '#008000'
-    #   } else if (value < 0) {
-    #     color = '#e00000'
-    #   } else {
-    #     color = '#777'
-    #   }
-    #   return { color: color, fontWeight: 'bold' }
-    # }")),
-    #             av_ni4 = colDef(name = "Last 4 years",
-    #                             maxWidth = 75,
-    #                             format = colFormat(percent = TRUE, digits = 1),
-    #                             style = JS("function(rowInfo) {
-    #   const value = rowInfo.values['av_ni4']
-    #   let color
-    #   if (value > 0) {
-    #     color = '#008000'
-    #   } else if (value < 0) {
-    #     color = '#e00000'
-    #   } else {
-    #     color = '#777'
-    #   }
-    #   return { color: color, fontWeight: 'bold' }
-    # }")),
-                
-                
                 year = colDef(name = "Financial Year", maxWidth = 65),
                 data.end = colDef(name = "Last End Date", maxWidth = 85, format = colFormat(date = TRUE, locales = "en-GB")),
                 weights = colDef(name = "Revenue evolution", minWidth = 100, cell = function(value, index) {
                   sparkline::sparkline(filtered_table_top()$weights[[index]], width = 80, height = 30)
                 })
-                
-                
-                #locales = ""))
               ),
               columnGroups = list(
                 colGroup(name = "Revenue Change (YoY)", columns = c("change_R")),
