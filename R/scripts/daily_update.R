@@ -4,7 +4,7 @@ setwd("~/Documents/GitHub/stockscreener/R/scripts/")
 library(tidyedgar)
 library(dplyr)
 
-df <- yearly_data(years = 2019:2023)
+df <- yearly_data(years = 2017:2023)
 
 top20 <- df |>
   arrange(year) |>
@@ -50,6 +50,24 @@ dflatest <- df |>
 # saving today's file
 saveRDS(dflatest, paste0("../../summary_latest_", format(Sys.time(), tz = "UTC", "%Y-%m-%d"),".rds"))
 
+# #### getting the companies in the S&P500
+# # Load the necessary libraries
+# library(rvest)
+# library(readr)
+# 
+# # The URL from which to scrape the table
+# link <- "https://en.wikipedia.org/wiki/List_of_S%26P_500_companies#S%26P_500_component_stocks"
+# 
+# # Read the tables from the webpage
+# tables <- read_html(link) %>% 
+#   html_table(fill = TRUE)
+# 
+# # Assuming the first table is the one we need (adjust the index if necessary)
+# df <- tables[[1]]
+# 
+# # Write to CSV
+# saveRDS(df, "~/Documents/GitHub/stockscreener/data/constituents.rds")
+# 
 
 # Today's file name
 file_name_today <- paste0("../../", "summary_latest_", format(Sys.time(), tz = "UTC", "%Y-%m-%d"), ".rds")
@@ -98,10 +116,3 @@ while (!success & attempt < max_attempts) {
     success <- TRUE  # Set success to true to exit the loop
   }
 }
-
-if (!success) {
-  stop("Deployment failed after 5 attempts.")
-} else {
-  message("Deployment succeeded.")
-}
-
